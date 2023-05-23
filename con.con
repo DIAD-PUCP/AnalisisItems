@@ -1,6 +1,6 @@
 TITLE = "RASCH"
 DELIMITER = ","
-DATA = "Z:/home/fernando/Projects/AnalisisItems/data.csv"
+DATA = "Z:/home/fernandomv3/Projects/AnalisisItems/data.csv"
 NI = 40
 ITEM1 = 2
 NAME1 = 1
@@ -11,8 +11,8 @@ UDECIMALS = 4
 ;      123456789012345678901234567890
 KEY1 = 1111111111111111111111111111111111111111
 CSV = Y
-IFILE = "Z:/home/fernando/Projects/AnalisisItems/items.csv"
-PFILE = "Z:/home/fernando/Projects/AnalisisItems/person.csv"
+IFILE = "Z:/home/fernandomv3/Projects/AnalisisItems/items.csv"
+PFILE = "Z:/home/fernandomv3/Projects/AnalisisItems/person.csv"
 &END
 MAT01
 MAT02
