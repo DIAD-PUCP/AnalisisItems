@@ -93,6 +93,8 @@ def rasch_estimate(X,epsilon=0.001,max_iter=10000):
     return difficulty,ability,expected,variances
 
 def rasch_fit(X,expected,variances):
+    #Kurtosis
+    C = np.multiply(expected**4,1-expected) + np.multiply(expected,(1-expected)**4)
 
     #Residuals
     res = X - expected
@@ -100,22 +102,21 @@ def rasch_fit(X,expected,variances):
     #Fit values
     fit = (res**2)/variances
 
-    def W(a):
-        sigma2 = 2/(9*a.size)
-        sigma = np.sqrt(sigma2)
-        mu = 1- sigma2
-        return (np.cbrt(a) - mu)/sigma
-
     #OutFit
+    C = np.multiply(expected**4,1-expected) + np.multiply(expected,(1-expected)**4)
     dif_outfit = np.mean(fit,axis=0)
+    dif_varoutfit2 = np.mean(fit**2,axis=0) - dif_outfit**2
+    dif_varoutfit3 = np.var(fit,axis=0)
+    dif_varoutfit = np.sum((C/(variances**2))/(C.shape[0]**2),axis=0) - (1/C.shape[0])
     ab_outfit = np.mean(fit,axis=1)
-    dif_zstdoutfit = W(dif_outfit)
+    dif_zstdoutfit = (np.cbrt(dif_outfit)-1)*(3/np.sqrt(dif_varoutfit)) + (np.sqrt(dif_varoutfit)/3)
     
 
     #InFit
     dif_infit = np.sum(res**2,axis=0)/np.sum(variances,axis=0)
+    dif_varinfit = np.sum((C-(variances**2)),axis=0)/(np.sum(variances,axis=0)**2)
     ab_infit = np.sum(res**2,axis=1)/np.sum(variances,axis=1)
-    dif_zstdinfit = W(dif_infit)
+    dif_zstdinfit = (np.cbrt(dif_infit)-1)*(3/np.sqrt(dif_varinfit)) + (np.sqrt(dif_varinfit)/3)
     
     return dif_outfit,dif_zstdoutfit,ab_outfit,dif_infit,dif_zstdinfit,ab_infit
 
