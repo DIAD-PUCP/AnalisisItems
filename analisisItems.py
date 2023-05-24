@@ -76,14 +76,15 @@ def scatter_plot(x,y,labels,colors,cutoff=0.5):
     return fig
 
 @st.cache_data
-def analisisRasch(scored,est,estDTI):
+def analisisRasch(rsp,key,est,estDTI):
+    scored = score(rsp,key)
     dif = {}
     hab = {}
     graphs = {}
     estDTI.index = scored.columns
     for v in est:
         dif[v],hab[v] = rasch(scored.filter(regex=f'{v}..'))
-        raschWinsteps(scored.filter(regex=f'{v}..'))
+        raschWinsteps(rsp.filter(regex=f'{v}..'),key.filter(regex=f'{v}..'))
         b_calc = dif[v]['measure']
         b_ini = estDTI.loc[estDTI['comp']==v,'Medición']
         b_ini0 = b_ini - (b_ini[b_ini.notnull()].mean() - b_calc[b_ini.notnull()].mean())
@@ -124,7 +125,7 @@ def main():
         rsp = leer_respuestas(rsp_file,est)
         keys = leer_claves(key_file,rsp.columns)
         ctt_ia,ctt_da,scored = analisisCTT(rsp,keys,est)
-        dif,hab,graphs= analisisRasch(scored,est,estDTI)
+        dif,hab,graphs= analisisRasch(rsp,keys,est,estDTI)
         with tabCTT:
             st.subheader('Análisis CTT')
             st.dataframe(pd.DataFrame(ctt_ia).T.drop(columns='items'))
@@ -142,7 +143,6 @@ def main():
             if comp:
                 st.pyplot(graphs[comp])
                 st.dataframe(dif[comp],use_container_width=True)
-                st.dataframe(dif[comp].describe(),use_container_width=True)
 
         with tabInsumos:
             st.subheader('Estructura')

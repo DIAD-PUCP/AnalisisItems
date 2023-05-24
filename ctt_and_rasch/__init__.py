@@ -90,7 +90,22 @@ def rasch_estimate(X,epsilon=0.001,max_iter=10000):
         
         sumsq_res = np.sum(ab_res**2)
         i = i+1
-    return difficulty,ability,expected,variances
+    kurtosis = np.multiply(expected**4,1-expected) + np.multiply(expected,(1-expected)**4)
+    return difficulty,ability,expected,variances,kurtosis
+
+def fit_stats(X,expected,variances,kurtosis,axis):
+    residuals = X - expected
+    fit = (residuals**2)/variances
+
+    outfit = np.mean(fit,axis=axis)
+    var_out = np.sum((kurtosis/(variances**2))/(kurtosis.shape[axis]**2),axis=axis) - (1/kurtosis.shape[axis])
+    zstdoutfit = (np.cbrt(outfit)-1)*(3/np.sqrt(var_out)) + (np.sqrt(var_out)/3)
+
+    infit = np.sum(residuals**2,axis=axis)/np.sum(variances,axis=axis)
+    var_in = np.sum((kurtosis-(variances**2)),axis=axis)/(np.sum(variances,axis=axis)**2)
+    zstdinfit = (np.cbrt(infit)-1)*(3/np.sqrt(var_in)) + (np.sqrt(var_in)/3)
+
+    return pd.DataFrame({'infit':infit,'zinfit':zstdinfit,'outfit':outfit,'zoutfit':zstdoutfit})
 
 def rasch_fit(X,expected,variances):
     #Kurtosis
@@ -136,27 +151,32 @@ def rasch(X):
     maxDif = X.mean()==1
     minDif = X.mean()==0
     x = X.loc[~maxAb & ~minAb, ~maxDif & ~minDif]
-    difficulty,ability,expected,variances = rasch_estimate(x)
+    difficulty,ability,expected,variances,kurtosis = rasch_estimate(x)
     
     # Calculate error
     dif_error = np.sqrt(1/np.sum(variances,axis=0))
     ab_error = np.sqrt(1/np.sum(variances,axis=1))
     
-    dif_outfit,dif_zstdoutfit,ab_outfit,dif_infit,dif_zstdinfit,ab_infit = rasch_fit(x,expected,variances)
+    #dif_outfit,dif_zstdoutfit,ab_outfit,dif_infit,dif_zstdinfit,ab_infit = rasch_fit(x,expected,variances)
+    item_fit = fit_stats(x,expected,variances,kurtosis,axis=0)
+    person_fit = fit_stats(x,expected,variances,kurtosis,axis=1)
     
-    dif = pd.DataFrame({'measure':difficulty,'error':dif_error,'infit':dif_infit,'zstdinfit':dif_zstdinfit,'outfit':dif_outfit,'zstdoutfit':dif_zstdoutfit},index=x.columns)
-    ab = pd.DataFrame({'measure':ability,'error':ab_error,'infit':ab_infit,'outfit':ab_outfit},index=x.index)
+    #dif = pd.DataFrame({'measure':difficulty,'error':dif_error,'infit':dif_infit,'zstdinfit':dif_zstdinfit,'outfit':dif_outfit,'zstdoutfit':dif_zstdoutfit},index=x.columns)
+    #ab = pd.DataFrame({'measure':ability,'error':ab_error,'infit':ab_infit,'outfit':ab_outfit},index=x.index)
+
+    dif = pd.DataFrame({'measure':difficulty,'error':dif_error},index=x.columns).join(item_fit)
+    ab = pd.DataFrame({'measure':ability,'error':ab_error},index=x.index).join(person_fit)
 
     return resDif.join(dif),resAb.join(ab)
 
-def raschWinsteps(X):
+def raschWinsteps(X,key):
     jinja_env = jinja2.Environment(
         #donde están los templates, por defecto es la carpeta actual
         loader = jinja2.FileSystemLoader('.'),autoescape= True
     )
     tpl = jinja_env.get_template('tpl.con')
     X.to_csv('data.csv',header=False)
-    confile = tpl.render(path=os.getcwd(),key='1'*X.shape[1],names=X.columns,nitems=X.shape[1])
-    with open('con.con','w') as f:
+    confile = tpl.render(path=os.getcwd(),key=''.join(key),names=X.columns,nitems=X.shape[1])
+    with open('test.con','w') as f:
         f.write(confile)
     print(f'flatpak run --command=bottles-cli com.usebottles.bottles run -p Winsteps -b Winsteps -- batch=yes "Z:{os.getcwd()}/test.con" "Z:{os.getcwd()}/out.log"')
