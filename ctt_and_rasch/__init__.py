@@ -90,7 +90,7 @@ def rasch_estimate(X,epsilon=0.001,max_iter=10000):
         
         sumsq_res = np.sum(ab_res**2)
         i = i+1
-    kurtosis = np.multiply(expected**4,1-expected) + np.multiply(expected,(1-expected)**4)
+    kurtosis = np.multiply(variances,expected**3 + (1-expected)**3)
     return difficulty,ability,expected,variances,kurtosis
 
 def fit_stats(X,expected,variances,kurtosis,axis):
@@ -98,7 +98,7 @@ def fit_stats(X,expected,variances,kurtosis,axis):
     fit = (residuals**2)/variances
 
     outfit = np.mean(fit,axis=axis)
-    var_out = np.sum((kurtosis/(variances**2))/(kurtosis.shape[axis]**2),axis=axis) - (1/kurtosis.shape[axis])
+    var_out = np.mean((kurtosis/(variances**2))-1,axis=axis)/kurtosis.shape[axis]
     zstdoutfit = (np.cbrt(outfit)-1)*(3/np.sqrt(var_out)) + (np.sqrt(var_out)/3)
 
     infit = np.sum(residuals**2,axis=axis)/np.sum(variances,axis=axis)
@@ -106,34 +106,6 @@ def fit_stats(X,expected,variances,kurtosis,axis):
     zstdinfit = (np.cbrt(infit)-1)*(3/np.sqrt(var_in)) + (np.sqrt(var_in)/3)
 
     return pd.DataFrame({'infit':infit,'zinfit':zstdinfit,'outfit':outfit,'zoutfit':zstdoutfit})
-
-def rasch_fit(X,expected,variances):
-    #Kurtosis
-    C = np.multiply(expected**4,1-expected) + np.multiply(expected,(1-expected)**4)
-
-    #Residuals
-    res = X - expected
-    
-    #Fit values
-    fit = (res**2)/variances
-
-    #OutFit
-    C = np.multiply(expected**4,1-expected) + np.multiply(expected,(1-expected)**4)
-    dif_outfit = np.mean(fit,axis=0)
-    dif_varoutfit2 = np.mean(fit**2,axis=0) - dif_outfit**2
-    dif_varoutfit3 = np.var(fit,axis=0)
-    dif_varoutfit = np.sum((C/(variances**2))/(C.shape[0]**2),axis=0) - (1/C.shape[0])
-    ab_outfit = np.mean(fit,axis=1)
-    dif_zstdoutfit = (np.cbrt(dif_outfit)-1)*(3/np.sqrt(dif_varoutfit)) + (np.sqrt(dif_varoutfit)/3)
-    
-
-    #InFit
-    dif_infit = np.sum(res**2,axis=0)/np.sum(variances,axis=0)
-    dif_varinfit = np.sum((C-(variances**2)),axis=0)/(np.sum(variances,axis=0)**2)
-    ab_infit = np.sum(res**2,axis=1)/np.sum(variances,axis=1)
-    dif_zstdinfit = (np.cbrt(dif_infit)-1)*(3/np.sqrt(dif_varinfit)) + (np.sqrt(dif_varinfit)/3)
-    
-    return dif_outfit,dif_zstdoutfit,ab_outfit,dif_infit,dif_zstdinfit,ab_infit
 
 def rasch(X):
     resDif = pd.DataFrame(index=X.columns)
@@ -157,12 +129,8 @@ def rasch(X):
     dif_error = np.sqrt(1/np.sum(variances,axis=0))
     ab_error = np.sqrt(1/np.sum(variances,axis=1))
     
-    #dif_outfit,dif_zstdoutfit,ab_outfit,dif_infit,dif_zstdinfit,ab_infit = rasch_fit(x,expected,variances)
     item_fit = fit_stats(x,expected,variances,kurtosis,axis=0)
     person_fit = fit_stats(x,expected,variances,kurtosis,axis=1)
-    
-    #dif = pd.DataFrame({'measure':difficulty,'error':dif_error,'infit':dif_infit,'zstdinfit':dif_zstdinfit,'outfit':dif_outfit,'zstdoutfit':dif_zstdoutfit},index=x.columns)
-    #ab = pd.DataFrame({'measure':ability,'error':ab_error,'infit':ab_infit,'outfit':ab_outfit},index=x.index)
 
     dif = pd.DataFrame({'measure':difficulty,'error':dif_error},index=x.columns).join(item_fit)
     ab = pd.DataFrame({'measure':ability,'error':ab_error},index=x.index).join(person_fit)

@@ -100,7 +100,6 @@ def analisisRasch(rsp,key,est,estDTI):
         diff_index = b_ini0['Medición'].notnull() & b_ini0['keep']
         diff = b_ini0.loc[diff_index,'Medición'].mean() - b_calc[diff_index].mean()
         b_calc = b_calc + diff + (b_ini[diff_index].mean()) - b_calc[diff_index].mean()
-        #st.write(b_calc)
         
         graphs[v] = scatter_plot(x,y,x.index,color)
     return dif,hab,graphs
