@@ -5,8 +5,12 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+import jinja2
+import os
+import subprocess
 from collections import OrderedDict
-from ctt_and_rasch import score, item_analysis, distractor_analysis, rasch, raschWinsteps
+from ctt_and_rasch import score, item_analysis, distractor_analysis, rasch
+
 
 
 def leer_estructura(archivo,col_comp='Competencia'):
@@ -75,6 +79,28 @@ def scatter_plot(x,y,labels,colors,cutoff=0.5):
     ax.fill_between(xvals,xvals - cutoff,xvals + cutoff,alpha=0.2)
     return fig
 
+def raschWinsteps(X,key,anchors=None):
+    jinja_env = jinja2.Environment(
+        #donde están los templates, por defecto es la carpeta actual
+        loader = jinja2.FileSystemLoader('.'),autoescape= True
+    )
+    tpl = jinja_env.get_template('tpl.con')
+    X.to_csv('data.csv',header=False)
+    confile = tpl.render(
+        path=os.getcwd(),
+        key=''.join(key),
+        anchors = anchors,
+        names=X.columns,
+        nitems=X.shape[1]
+    )
+    with open('test.con','w') as f:
+        f.write(confile)
+    command = f'flatpak run --command=bottles-cli com.usebottles.bottles run -p Winsteps -b Winsteps -- batch=yes "Z:{os.getcwd()}/test.con" "Z:{os.getcwd()}/out.log"'
+    subprocess.run(command,shell=True)
+    dif = pd.read_csv('items.csv',skiprows=1).set_index('NAME')
+    hab = pd.read_csv('person.csv',skiprows=1).set_index('NAME')
+    return dif,hab
+
 @st.cache_data
 def analisisRasch(rsp,key,est,estDTI):
     scored = score(rsp,key)
@@ -84,24 +110,26 @@ def analisisRasch(rsp,key,est,estDTI):
     estDTI.index = scored.columns
     for v in est:
         dif[v],hab[v] = rasch(scored.filter(regex=f'{v}..'))
-        raschWinsteps(rsp.filter(regex=f'{v}..'),key.filter(regex=f'{v}..'))
-        b_calc = dif[v]['measure']
         b_ini = estDTI.loc[estDTI['comp']==v,'Medición']
+        #dif[v],hab[v] = raschWinsteps(rsp.filter(regex=f'{v}..'),key.filter(regex=f'{v}..'),anchors=None)
+        b_calc = dif[v]['measure']
         b_ini0 = b_ini - (b_ini[b_ini.notnull()].mean() - b_calc[b_ini.notnull()].mean())
-        
         x = b_ini0[b_ini0.notnull()]
         y = b_calc[b_ini0.notnull()]
         
         keep = (np.abs(x-y) < 0.5).rename('keep')
         color = np.where(keep,"blue","red")
+        graphs[v] = scatter_plot(x,y,x.index,color)
 
         # restar la media de los que queden anclados
-        b_ini0 = pd.concat([b_ini0,keep],axis=1)
-        diff_index = b_ini0['Medición'].notnull() & b_ini0['keep']
-        diff = b_ini0.loc[diff_index,'Medición'].mean() - b_calc[diff_index].mean()
-        b_calc = b_calc + diff + (b_ini[diff_index].mean()) - b_calc[diff_index].mean()
+        b_ini = pd.concat([b_ini,keep],axis=1)
+        # Indice de las anclas
+        diff_index = b_ini['Medición'].notnull() & b_ini['keep']
+        diff = b_ini.loc[diff_index,'Medición'].mean() - b_calc[diff_index].mean()
+        b_calc = b_calc + diff
+
+        dif[v] = dif[v].join(b_calc.rename('measureA'))
         
-        graphs[v] = scatter_plot(x,y,x.index,color)
     return dif,hab,graphs
 
 def main():

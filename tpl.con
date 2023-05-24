@@ -1,4 +1,5 @@
 TITLE = "RASCH"
+CMLE = Y
 DELIMITER = ","
 DATA = "Z:{{path}}/data.csv"
 NI = {{nitems}}
@@ -14,6 +15,15 @@ CSV = Y
 IFILE = "Z:{{path}}/items.csv"
 PFILE = "Z:{{path}}/person.csv"
 DISFILE = "Z:{{path}}/distractor.csv"
+{% if anchors is not none -%}
+IAFILE=*
+{%- for anchor in anchors %}
+{%- if anchor == anchor %}
+{{loop.index}} {{anchor}}
+{%- endif -%}
+{%- endfor %}
+*
+{%- endif %}
 &END
 {% for name in names %}{{ name }}
 {% endfor -%}

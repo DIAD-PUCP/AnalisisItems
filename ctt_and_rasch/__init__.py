@@ -4,8 +4,7 @@
 import pandas as pd
 import numpy as np
 import scipy.stats as stats
-import jinja2
-import os
+from scipy.optimize import minimize
 
 def score(rsp,clave):
     return (rsp == clave).astype(int)
@@ -57,7 +56,24 @@ def distractor_analysis(df,key):
     res['n'] = res['n'].astype(int)
     return res.reindex(columns=['correct','n','p','pbis','disc','lower','50%','75%','upper'])
 
-def rasch_estimate(X,epsilon=0.001,max_iter=10000):
+def rasch_estimate_cmle(X,max_iter=10000,epsilon=0.0001):
+    nperson,nitem = X.shape
+    difficulty = np.random.randn(nitem)
+    ability = np.zeros(nperson)
+
+    def loglike(difficulty):
+        difficulty = difficulty - np.mean(difficulty)
+        success = np.exp(-difficulty)/(1+np.exp(-difficulty))
+        likelihood = X * success + (1-X)*(1-success) 
+        return -np.sum(np.sum(likelihood))
+    
+    result = minimize(loglike, difficulty, method='BFGS')
+    difficulty = result.x
+    return difficulty,ability
+
+
+
+def rasch_estimate_jmle(X,max_iter=10000,epsilon=0.0001):
     item = np.nanmean(X,axis=0) # proportion of correct per item
     difficulty = np.log((1-item)/item) # log odds of failure
     difficulty = difficulty- np.nanmean(difficulty) # Ajust mean difficulty to 0
@@ -69,8 +85,8 @@ def rasch_estimate(X,epsilon=0.001,max_iter=10000):
     sumsq_res = np.inf
     while (i< max_iter and sumsq_res > epsilon):
         # Calculate expected values
-        dif,hab = np.meshgrid(difficulty,ability)
-        expected =  np.exp(hab-dif)/(1+np.exp(hab-dif)) # P(X=1)
+        dif,ab = np.meshgrid(difficulty,ability)
+        expected =  np.exp(ab-dif)/(1+np.exp(ab-dif)) # P(X=1)
 
         # Variances
         variances = np.multiply(expected , 1-expected)# p(1-p)
@@ -123,7 +139,8 @@ def rasch(X):
     maxDif = X.mean()==1
     minDif = X.mean()==0
     x = X.loc[~maxAb & ~minAb, ~maxDif & ~minDif]
-    difficulty,ability,expected,variances,kurtosis = rasch_estimate(x)
+    difficulty,ability,expected,variances,kurtosis = rasch_estimate_jmle(x)
+    print(rasch_estimate_cmle(x))
     
     # Calculate error
     dif_error = np.sqrt(1/np.sum(variances,axis=0))
@@ -136,15 +153,3 @@ def rasch(X):
     ab = pd.DataFrame({'measure':ability,'error':ab_error},index=x.index).join(person_fit)
 
     return resDif.join(dif),resAb.join(ab)
-
-def raschWinsteps(X,key):
-    jinja_env = jinja2.Environment(
-        #donde están los templates, por defecto es la carpeta actual
-        loader = jinja2.FileSystemLoader('.'),autoescape= True
-    )
-    tpl = jinja_env.get_template('tpl.con')
-    X.to_csv('data.csv',header=False)
-    confile = tpl.render(path=os.getcwd(),key=''.join(key),names=X.columns,nitems=X.shape[1])
-    with open('test.con','w') as f:
-        f.write(confile)
-    print(f'flatpak run --command=bottles-cli com.usebottles.bottles run -p Winsteps -b Winsteps -- batch=yes "Z:{os.getcwd()}/test.con" "Z:{os.getcwd()}/out.log"')
