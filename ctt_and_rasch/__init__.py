@@ -140,7 +140,7 @@ def rasch(X):
     minDif = X.mean()==0
     x = X.loc[~maxAb & ~minAb, ~maxDif & ~minDif]
     difficulty,ability,expected,variances,kurtosis = rasch_estimate_jmle(x)
-    print(rasch_estimate_cmle(x))
+    #print(rasch_estimate_cmle(x))
     
     # Calculate error
     dif_error = np.sqrt(1/np.sum(variances,axis=0))

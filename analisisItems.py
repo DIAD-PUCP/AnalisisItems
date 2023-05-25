@@ -9,7 +9,7 @@ import jinja2
 import os
 import subprocess
 from collections import OrderedDict
-from ctt_and_rasch import score, item_analysis, distractor_analysis, rasch
+from ctt_and_rasch import score, item_analysis, distractor_analysis, rasch, fit_stats
 
 
 
@@ -79,6 +79,43 @@ def scatter_plot(x,y,labels,colors,cutoff=0.5):
     ax.fill_between(xvals,xvals - cutoff,xvals + cutoff,alpha=0.2)
     return fig
 
+def eRm(X):
+    X.to_csv('matrix.csv')
+    subprocess.run(['Rscript','rasch.R'])
+    difficulty = pd.read_csv('difficulty.csv')['x'].rename('measure')
+    ability = pd.read_csv('ability.csv')['x'].rename('measure')
+    difficulty.index = X.columns
+    ability.index = X.index
+    # Calculate expected values
+    dif,ab = np.meshgrid(difficulty,ability)
+    expected =  np.exp(ab-dif)/(1+np.exp(ab-dif))
+    variances = np.multiply(expected , 1-expected)
+    kurtosis = np.multiply(variances,expected**3 + (1-expected)**3)
+    return difficulty,ability,expected,variances,kurtosis
+
+def raschERm(X):
+    resDif = pd.DataFrame(index=X.columns)
+    resAb = pd.DataFrame(index=X.index)
+
+    resDif = pd.concat([resDif,X.sum().rename('score')],axis=1)
+    resDif["count"] = X.shape[0]
+
+    resAb = pd.concat([resAb,X.sum(axis=1).rename('score')],axis=1)
+    resAb["count"] = X.shape[1]
+
+    difficulty,ability,expected,variances,kurtosis = eRm(X)
+     # Calculate error
+    dif_error = np.sqrt(1/np.sum(variances,axis=0))
+    ab_error = np.sqrt(1/np.sum(variances,axis=1))
+
+    item_fit = fit_stats(X,expected,variances,kurtosis,axis=0)
+    person_fit = fit_stats(X,expected,variances,kurtosis,axis=1)
+
+    dif = pd.DataFrame({'measure':difficulty,'error':dif_error},index=X.columns).join(item_fit)
+    ab = pd.DataFrame({'measure':ability,'error':ab_error},index=X.index).join(person_fit)
+
+    return resDif.join(dif),resAb.join(ab)
+
 def raschWinsteps(X,key,anchors=None):
     jinja_env = jinja2.Environment(
         #donde están los templates, por defecto es la carpeta actual
@@ -109,26 +146,25 @@ def analisisRasch(rsp,key,est,estDTI):
     graphs = {}
     estDTI.index = scored.columns
     for v in est:
-        dif[v],hab[v] = rasch(scored.filter(regex=f'{v}..'))
+        dif[v],hab[v] = raschERm(scored.filter(regex=f'{v}..'))
         b_ini = estDTI.loc[estDTI['comp']==v,'Medición']
-        #dif[v],hab[v] = raschWinsteps(rsp.filter(regex=f'{v}..'),key.filter(regex=f'{v}..'),anchors=None)
         b_calc = dif[v]['measure']
+
+        # Calcular los items a desanclar
         b_ini0 = b_ini - (b_ini[b_ini.notnull()].mean() - b_calc[b_ini.notnull()].mean())
         x = b_ini0[b_ini0.notnull()]
         y = b_calc[b_ini0.notnull()]
-        
-        keep = (np.abs(x-y) < 0.5).rename('keep')
-        color = np.where(keep,"blue","red")
+        keep = (np.abs(x-y) < 0.5).rename('anchored')
+        color = np.where(keep,'blue','red')
         graphs[v] = scatter_plot(x,y,x.index,color)
 
-        # restar la media de los que queden anclados
-        b_ini = pd.concat([b_ini,keep],axis=1)
-        # Indice de las anclas
-        diff_index = b_ini['Medición'].notnull() & b_ini['keep']
-        diff = b_ini.loc[diff_index,'Medición'].mean() - b_calc[diff_index].mean()
+        anclas = dif[v].join(keep)['anchored'] == True
+
+        diff = b_ini[anclas].mean() - b_calc[anclas].mean()
+
         b_calc = b_calc + diff
 
-        dif[v] = dif[v].join(b_calc.rename('measureA'))
+        dif[v] = dif[v].join(anclas).join(b_calc.rename('measureA'))
         
     return dif,hab,graphs
 
