@@ -5,8 +5,9 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-#import jinja2
-#import os
+import jinja2
+from io import BytesIO
+from zipfile import ZipFile
 from collections import OrderedDict
 from numpy.random import default_rng
 from ctt_and_rasch import score, item_analysis, distractor_analysis, rasch
@@ -91,25 +92,22 @@ def scatter_plot(x,y,labels,colors,cutoff=0.5):
     ax.fill_between(xvals,xvals - cutoff,xvals + cutoff,alpha=0.2)
     return fig
 
-# def raschWinsteps(X,key,anchors=None):
-#     jinja_env = jinja2.Environment(
-#         #donde están los templates, por defecto es la carpeta actual
-#         loader = jinja2.FileSystemLoader('.'),autoescape= True
-#     )
-#     tpl = jinja_env.get_template('tpl.con')
-#     X.to_csv('data.csv',header=False)
-#     confile = tpl.render(
-#         path=os.getcwd(),
-#         key=''.join(key),
-#         anchors = anchors,
-#         names=X.columns,
-#         nitems=X.shape[1]
-#     )
-#     with open('test.con','w') as f:
-#         f.write(confile)
-#     command = f'flatpak run --command=bottles-cli com.usebottles.bottles run -p Winsteps -b Winsteps -- batch=yes "Z:{os.getcwd()}/test.con" "Z:{os.getcwd()}/out.log"'
-#     print(command)
-#     return None,None
+def raschWinsteps(X,key,anchors=None,suffix=''):
+    jinja_env = jinja2.Environment(
+        #donde están los templates, por defecto es la carpeta actual
+        loader = jinja2.FileSystemLoader('.'),autoescape= True
+    )
+    tpl = jinja_env.get_template('tpl.con')
+    confile = tpl.render(
+        path='',
+        key=''.join(key),
+        anchors = anchors,
+        names=X.columns,
+        nitems=X.shape[1],
+        suffix=suffix,
+        data = X.to_csv(None,header=False)
+    )
+    return confile
 
 @st.cache_data
 def analisisRasch(rsp,key,estructura,estructuraDTI):
@@ -117,6 +115,7 @@ def analisisRasch(rsp,key,estructura,estructuraDTI):
     dif = {}
     hab = {}
     graphs = {}
+    confiles = {}
     estructuraDTI.index = scored.columns
     for c in estructura:
         dif[c],hab[c] = rasch(scored.filter(regex=f'{c}..'))
@@ -133,17 +132,16 @@ def analisisRasch(rsp,key,estructura,estructuraDTI):
         graphs[c] = scatter_plot(x,y,x.index,color)
 
         anclas = dif[c].join(keep)['anchored'] == True
-        #raschWinsteps(rsp.filter(regex=f'{c}..'),key.filter(regex=f'{c}..'),anchors=np.where(anclas,b_ini,np.nan))
+        confiles[c] = raschWinsteps(rsp.filter(regex=f'{c}..'),key.filter(regex=f'{c}..'),anchors=np.where(anclas,b_ini,np.nan),suffix=c)
 
         diff = b_ini[anclas].mean() - b_calc[anclas].mean()
-        b_calc = np.where(anclas,b_ini,b_calc + diff)
-        #b_calc = b_calc + diff
-        #st.write(b_ini[anclas].mean() - b_calc[anclas].mean())
+        #b_calc = np.where(anclas,b_ini,b_calc + diff)
+        b_calc = b_calc + diff
 
         dif[c] = dif[c].join(anclas)
         dif[c]['measureA'] = b_calc
         
-    return dif,hab,graphs
+    return dif,hab,graphs,confiles
 
 def main():
     if 'processed' not in st.session_state:
@@ -163,7 +161,7 @@ def main():
 
     if st.session_state['processed'] or procesar:
         st.session_state['processed'] = True
-        tabCTT, tabIRT, tabInsumos = st.tabs(['CTT', 'IRT','Insumos'])
+        tabCTT, tabIRT, tabInsumos, tabDescargas = st.tabs(['CTT', 'IRT','Insumos','Descargas'])
         estDTI,est = leer_estructura(est_file)
         rsp = leer_respuestas(rsp_file,est)
         if reordenar:
@@ -172,7 +170,7 @@ def main():
         else:
             keys = leer_claves(key_file,rsp.columns)
         ctt_ia,ctt_da,scored = analisisCTT(rsp,keys,est)
-        dif,hab,graphs= analisisRasch(rsp,keys,est,estDTI)
+        dif,hab,graphs,confiles= analisisRasch(rsp,keys,est,estDTI)
         with tabCTT:
             st.subheader('Análisis CTT')
             st.dataframe(pd.DataFrame(ctt_ia).T.drop(columns='items'))
@@ -185,12 +183,11 @@ def main():
                     da = ctt_da[comp]
                     st.dataframe(da.loc[(item,),:],use_container_width=True)
         with tabIRT:
-            comp = st.selectbox('Competencia',key="compirt",options=est.keys(),help='Seleccionar la competencia a analizar')
+            comp = st.selectbox('Competencia',key='compirt',options=est.keys(),help='Seleccionar la competencia a analizar')
             st.subheader('Análisis IRT')
             if comp:
                 st.pyplot(graphs[comp])
                 st.dataframe(dif[comp],use_container_width=True)
-                #st.dataframe(hab[comp],use_container_width=True)
 
         with tabInsumos:
             st.subheader('Estructura')
@@ -200,4 +197,28 @@ def main():
             st.subheader('Claves')
             st.dataframe(keys)
 
+        with tabDescargas:
+            l = []
+            for k,v in dif.items():
+                l.append(v)
+            difRes = pd.concat(l)[['measureA','error']].round(3)
+            st.write(difRes)
+            st.download_button(
+                'Descargar estructuras',
+                data=difRes.to_csv(None),
+                file_name="Estructura.csv"
+            )
+
+            tempZip = BytesIO()
+            with ZipFile(tempZip,'w') as zf:
+                for k,v in confiles.items():
+                    with zf.open(f'{k}.con','w') as conBuffer:
+                        conBuffer.write(v.encode('utf-8'))
+            st.download_button(
+                'Descargar archivos winsteps',
+                data=tempZip.getvalue(),
+                file_name='winsteps.zip',
+                mime="application/zip"
+            )
+            tempZip.close()
 main()

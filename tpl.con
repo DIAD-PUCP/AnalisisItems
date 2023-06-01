@@ -1,7 +1,6 @@
 TITLE = "RASCH"
 CMLE = Y
 DELIMITER = ","
-DATA = "Z:{{path}}/data.csv"
 NI = {{nitems}}
 ITEM1 = 2
 NAME1 = 1
@@ -12,9 +11,8 @@ UDECIMALS = 4
 ;      123456789012345678901234567890
 KEY1 = {{key}}
 CSV = Y
-IFILE = "Z:{{path}}/items.csv"
-PFILE = "Z:{{path}}/person.csv"
-DISFILE = "Z:{{path}}/distractor.csv"
+IFILE = "items{{suffix}}.csv"
+PFILE = "person{{suffix}}.csv"
 {% if anchors is not none -%}
 IAFILE=*
 {%- for anchor in anchors %}
@@ -28,3 +26,4 @@ IAFILE=*
 {% for name in names %}{{ name }}
 {% endfor -%}
 END NAMES
+{{ data }}
