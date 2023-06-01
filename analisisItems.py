@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 #import jinja2
 #import os
 from collections import OrderedDict
+from numpy.random import default_rng
 from ctt_and_rasch import score, item_analysis, distractor_analysis, rasch
 
 def leer_estructura(archivo,col_comp='Competencia'):
@@ -53,6 +54,20 @@ def leer_claves(path,colnames):
     clave = pd.read_excel(path).T
     clave.columns = colnames
     return clave.iloc[0]
+
+def all_A(columns):
+    return pd.Series(['A']*len(columns),index=columns)
+
+def reordenar_respuestas(rsp,codigo):
+    rng = default_rng(codigo)
+    op = np.arange(1,5)
+    orden = rsp.apply(
+        lambda x: rng.permutation(op)
+    ).applymap(lambda x: chr(64+x))
+    vals = ['A','B','C','D']
+    orden.index = vals
+    st.write(orden)
+    return rsp.apply(lambda x: x.apply(lambda y: orden[x.name][y] if y in vals else y))
 
 @st.cache_data
 def analisisCTT(rsp,keys,est):
@@ -140,6 +155,9 @@ def main():
             st.subheader('Insumos')
             est_file = st.file_uploader('Archivo de estructura',help='Es el mismo archivo de estructura que se sube a DTI')
             rsp_file = st.file_uploader('Archivo de respuestas',help='El archivo de respuestas (debe contener solo una versión)')
+            reordenar = st.checkbox('Reordenar las claves',help='Reordenar las claves a como estaba en el Fastest, requiere ingresar el código de la prueba')
+            if reordenar:
+                codigo = st.number_input('Código',value=0,format='%d',help='El codigo con el que se generó el examen')
             key_file = st.file_uploader('Archivo de claves',help='Archivo de claves exportado en diagramación')
             procesar = st.form_submit_button('PROCESAR')
 
@@ -148,7 +166,11 @@ def main():
         tabCTT, tabIRT, tabInsumos = st.tabs(['CTT', 'IRT','Insumos'])
         estDTI,est = leer_estructura(est_file)
         rsp = leer_respuestas(rsp_file,est)
-        keys = leer_claves(key_file,rsp.columns)
+        if reordenar:
+            rsp = reordenar_respuestas(rsp,int(codigo))
+            keys = all_A(rsp.columns)
+        else:
+            keys = leer_claves(key_file,rsp.columns)
         ctt_ia,ctt_da,scored = analisisCTT(rsp,keys,est)
         dif,hab,graphs= analisisRasch(rsp,keys,est,estDTI)
         with tabCTT:
