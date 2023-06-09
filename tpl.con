@@ -6,7 +6,7 @@ ITEM1 = 2
 NAME1 = 1
 MISSCORE = 0 ; Todos los blancos y errores como mala respuesta.
 CODES = ABCD
-UDECIMALS = 4
+UDECIMALS = 3
 ;               111111111122222222223
 ;      123456789012345678901234567890
 KEY1 = {{key}}

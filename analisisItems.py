@@ -135,9 +135,14 @@ def analisisRasch(rsp,key,estructura,estructuraDTI):
         confiles[c] = raschWinsteps(rsp.filter(regex=f'{c}..'),key.filter(regex=f'{c}..'),anchors=np.where(anclas,b_ini,np.nan),suffix=c)
 
         diff = b_ini[anclas].mean() - b_calc[anclas].mean()
-        #b_calc = np.where(anclas,b_ini,b_calc + diff)
-        b_calc = b_calc + diff
-
+        #st.write(f'media estructura {c} {b_ini.mean()}')
+        #st.write(f'media calculada {c} {b_calc.mean()}')
+        #st.write(f'media anclas inicial {c} {b_ini[anclas].mean()}')
+        #st.write(f'media anclas calculada {c} {b_calc[anclas].mean()}')
+        #st.write(f'diff {c} {diff}')
+        b_calc = np.where(anclas,b_ini,(b_calc + diff))
+        #st.write(f'nueva media calculada {c} {b_calc.mean()}')
+        #b_calc = b_calc + diff
         dif[c] = dif[c].join(anclas)
         dif[c]['measureA'] = b_calc
         
