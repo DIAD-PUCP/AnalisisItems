@@ -133,18 +133,12 @@ def analisisRasch(rsp,key,estructura,estructuraDTI):
 
         anclas = dif[c].join(keep)['anchored'] == True
         confiles[c] = raschWinsteps(rsp.filter(regex=f'{c}..'),key.filter(regex=f'{c}..'),anchors=np.where(anclas,b_ini,np.nan),suffix=c)
-
         diff = b_ini[anclas].mean() - b_calc[anclas].mean()
-        #st.write(f'media estructura {c} {b_ini.mean()}')
-        #st.write(f'media calculada {c} {b_calc.mean()}')
-        #st.write(f'media anclas inicial {c} {b_ini[anclas].mean()}')
-        #st.write(f'media anclas calculada {c} {b_calc[anclas].mean()}')
-        #st.write(f'diff {c} {diff}')
-        b_calc = np.where(anclas,b_ini,(b_calc + diff))
-        #st.write(f'nueva media calculada {c} {b_calc.mean()}')
-        #b_calc = b_calc + diff
+        b_calc2 = np.where(anclas,b_ini,b_calc + diff)
+        dif[c],hab[c] = rasch(scored.filter(regex=f'{c}..'),anchored_difficulty=b_calc2)
+        dif[c]['measure'] = b_calc
         dif[c] = dif[c].join(anclas)
-        dif[c]['measureA'] = b_calc
+        dif[c]['measureA'] = b_calc2
         
     return dif,hab,graphs,confiles
 
@@ -193,6 +187,7 @@ def main():
             if comp:
                 st.pyplot(graphs[comp])
                 st.dataframe(dif[comp],use_container_width=True)
+                st.dataframe(hab[comp],use_container_width=True)
 
         with tabInsumos:
             st.subheader('Estructura')

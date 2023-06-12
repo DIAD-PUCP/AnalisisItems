@@ -67,9 +67,13 @@ def distractor_analysis(df,key):
     res['n'] = res['n'].astype(int)
     return res.reindex(columns=['correct','n','p','pbis','disc','lower','50%','75%','upper'])
 
-def rasch_estimate_cmle(X):
+
+def rasch_estimate_cmle(X,anchored_difficulty=None):
     X = X.T
-    difficulty = rasch_conditional(X)['Difficulty']
+    if anchored_difficulty is None:
+        difficulty = rasch_conditional(X)['Difficulty']
+    else:
+        difficulty = anchored_difficulty
     ability = ability_mle(X.to_numpy(),difficulty,1,no_estimate=5)
     return difficulty,ability
 
@@ -131,7 +135,7 @@ def fit_stats(X,difficulty,ability,axis=0):
 
     return pd.DataFrame({'error':error,'infit':infit,'zinfit':zstdinfit,'outfit':outfit,'zoutfit':zstdoutfit})
 
-def rasch(X):
+def rasch(X,anchored_difficulty=None):
     resDif = pd.DataFrame(index=X.columns)
     resAb = pd.DataFrame(index=X.index)
 
@@ -141,7 +145,7 @@ def rasch(X):
     resAb = pd.concat([resAb,X.sum(axis=1).rename('score')],axis=1)
     resAb["count"] = X.shape[1]
 
-    difficulty,ability = rasch_estimate_cmle(X)
+    difficulty,ability = rasch_estimate_cmle(X,anchored_difficulty)
     
     item_fit = fit_stats(X,difficulty,ability,axis=0)
     person_fit = fit_stats(X,difficulty,ability,axis=1)
