@@ -134,7 +134,9 @@ def analisisRasch(rsp,key,estructura,estructuraDTI):
         anclas = dif[c].join(keep)['anchored'] == True
         confiles[c] = raschWinsteps(rsp.filter(regex=f'{c}..'),key.filter(regex=f'{c}..'),anchors=np.where(anclas,b_ini,np.nan),suffix=c)
         diff = b_ini[anclas].mean() - b_calc[anclas].mean()
-        b_calc2 = np.where(anclas,b_ini,b_calc + diff)
+        st.write(f'Diff {c}: {diff}')
+        #b_calc2 = np.where(anclas,b_ini,b_calc + diff)
+        b_calc2 = b_calc + diff
         dif[c],hab[c] = rasch(scored.filter(regex=f'{c}..'),anchored_difficulty=b_calc2)
         dif[c]['measure'] = b_calc
         dif[c] = dif[c].join(anclas)
@@ -201,7 +203,12 @@ def main():
             l = []
             for k,v in dif.items():
                 l.append(v)
-            difRes = pd.concat(l)[['measureA','error']].round(3)
+            difRes = pd.concat(l)[['count','measureA','error','infit','outfit']].round(3)
+            l = []
+            for k,v in ctt_ia.items():
+                l.append(v['items'])
+            cttRes = pd.concat(l)[['mean','pbis']].round(3)
+            difRes = pd.concat([difRes,cttRes],axis=1)
             st.write(difRes)
             st.download_button(
                 'Descargar estructuras',
