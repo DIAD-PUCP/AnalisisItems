@@ -105,7 +105,7 @@ def raschWinsteps(X,key,anchors=None,suffix=''):
         names=X.columns,
         nitems=X.shape[1],
         suffix=suffix,
-        data = X.to_csv(None,header=False)
+        data = X.fillna(' ').to_csv(None,header=False)
     )
     return confile
 
