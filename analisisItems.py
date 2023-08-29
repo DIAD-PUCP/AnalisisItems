@@ -9,7 +9,6 @@ import jinja2
 from io import BytesIO
 from zipfile import ZipFile
 from collections import OrderedDict
-from numpy.random import default_rng
 from ctt_and_rasch import score, item_analysis, distractor_analysis, rasch
 
 def leer_estructura(archivo,col_comp='Competencia'):
