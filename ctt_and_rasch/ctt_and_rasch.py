@@ -57,7 +57,7 @@ def distractor_analysis(df,key):
         n = dummys.sum().rename('n')
         p = dummys.mean().rename('p')
         pbis = dummys.apply(lambda y: y.corr(scores-y)).rename('pbis')
-        pq = dummys.join(q).groupby('q',observed=True).mean().T
+        pq = dummys.join(q).groupby('q').mean().T
         disc = (pq['upper'] - pq['lower']).rename('disc')
         res = pd.concat([n,p,pbis,disc,pq],axis=1).rename_axis('choice')
         res['correct'] = res.index == key[x.name]

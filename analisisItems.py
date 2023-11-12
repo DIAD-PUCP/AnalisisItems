@@ -98,7 +98,7 @@ def raschWinsteps(X,key,anchors=None,suffix=''):
     return confile
 
 @st.cache_data
-def analisisRasch(rsp,key,estructura,estructuraDTI,anchors):
+def analisisRasch(rsp,key,estructura,estructuraDTI):
     scored = score(rsp,key)
     dif = {}
     hab = {}
@@ -115,20 +115,16 @@ def analisisRasch(rsp,key,estructura,estructuraDTI,anchors):
         b_ini0 = b_ini - (b_ini[b_ini.notnull()].mean() - b_calc[b_ini.notnull()].mean())
         x = b_ini0[b_ini0.notnull()]
         y = b_calc[b_ini0.notnull()]
-        st.write(anchors)
-        if not anchors or (c not in anchors):
-            keep = (np.abs(x-y) < 0.5).rename('anchored')
-        else:
-            keep = anchors[c]
+        keep = (np.abs(x-y) < 0.5).rename('anchored')
         color = np.where(keep,'blue','red')
         graphs[c] = scatter_plot(x,y,x.index,color)
-        
+
         anclas = dif[c].join(keep)['anchored'] == True
         confiles[c] = raschWinsteps(rsp.filter(regex=f'{c}..'),key.filter(regex=f'{c}..'),anchors=np.where(anclas,b_ini,np.nan),suffix=c)
         diff = b_ini[anclas].mean() - b_calc[anclas].mean()
         st.write(f'Diff {c}: {diff}')
-        b_calc2 = np.where(anclas,b_ini,b_calc + diff)
-        #b_calc2 = b_calc + diff
+        #b_calc2 = np.where(anclas,b_ini,b_calc + diff)
+        b_calc2 = b_calc + diff
         dif[c],hab[c] = rasch(scored.filter(regex=f'{c}..'),anchored_difficulty=b_calc2)
         dif[c]['measure'] = b_calc
         dif[c] = dif[c].join(anclas)
@@ -149,9 +145,6 @@ def main():
             key_file = st.file_uploader('Archivo de claves',help='Archivo de claves exportado en diagramación')
             procesar = st.form_submit_button('PROCESAR')
 
-    if procesar:
-        st.session_state['anchors'] ={}
-
     if st.session_state['processed'] or procesar:
         st.session_state['processed'] = True
         tabCTT, tabIRT, tabInsumos, tabDescargas = st.tabs(['CTT', 'IRT','Insumos','Descargas'])
@@ -159,7 +152,7 @@ def main():
         rsp = leer_respuestas(rsp_file,est)
         keys = leer_claves(key_file,rsp.columns)
         ctt_ia,ctt_da,scored = analisisCTT(rsp,keys,est)
-        dif,hab,graphs,confiles= analisisRasch(rsp,keys,est,estDTI,st.session_state['anchors'])
+        dif,hab,graphs,confiles= analisisRasch(rsp,keys,est,estDTI)
         with tabCTT:
             st.subheader('Análisis CTT')
             st.dataframe(pd.DataFrame(ctt_ia).T.drop(columns='items'))
@@ -176,10 +169,7 @@ def main():
             st.subheader('Análisis IRT')
             if comp:
                 st.pyplot(graphs[comp])
-                disabled_columns = list(dif[comp].columns)
-                disabled_columns.remove('anchored')
-                edited = st.data_editor(dif[comp],use_container_width=True,disabled=disabled_columns)
-                st.session_state['anchors'][comp] = edited['anchored']
+                st.dataframe(dif[comp],use_container_width=True)
                 st.dataframe(hab[comp],use_container_width=True)
 
         with tabInsumos:
