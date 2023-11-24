@@ -34,10 +34,11 @@ def leer_respuestas(archivo,estructura,idlen=5):
     df = pd.read_fwf(
         archivo,
         header=None,
+        colspecs=[(0,1000)],
         dtype=str,
         encoding='iso-8859-1',
         names= ['line'],
-        widths= [start]
+        #widths= [start]
     )
     for (start,end),name in zip(l,cols):
         df[name] = df['line'].str[start:end]
@@ -169,6 +170,7 @@ def main():
             st.subheader('Análisis IRT')
             if comp:
                 st.pyplot(graphs[comp])
+                st.write(','.join(list(dif[comp].query('anchored ==  False').index)))
                 st.dataframe(dif[comp],use_container_width=True)
                 st.dataframe(hab[comp],use_container_width=True)
 
