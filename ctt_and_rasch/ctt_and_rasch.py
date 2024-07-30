@@ -64,7 +64,7 @@ def distractor_analysis(df,key):
         res = res.unstack()
         return res
     res = df.apply(item_distractor_analysis).T.stack(future_stack=True)
-    res['n'] = res['n'].fillna(0).astype(int)
+    res['n'] = res['n'].infer_objects(copy=False).fillna(0).astype(int)
     return res.reindex(columns=['correct','n','p','pbis','disc','lower','50%','75%','upper'])
 
 
