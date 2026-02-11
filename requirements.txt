@@ -24,7 +24,7 @@ numpy==2.4.2
 openpyxl==3.1.5
 packaging==26.0
 pandas==2.3.3
-pillow==12.1.0
+pillow==12.1.1
 protobuf==6.33.5
 pyarrow==23.0.0
 pydeck==0.9.1
@@ -37,8 +37,8 @@ rpds-py==0.30.0
 scipy==1.17.0
 six==1.17.0
 smmap==5.0.2
-streamlit==1.53.1
-tenacity==9.1.2
+streamlit==1.54.0
+tenacity==9.1.4
 toml==0.10.2
 tornado==6.5.4
 typing_extensions==4.15.0
